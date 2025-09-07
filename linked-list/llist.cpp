@@ -49,6 +49,8 @@ class LinkedList {
     Node *_head, *_foot;
     size_t _size;
 
+   public:
+
     // 构造函数与析构函数
     LinkedList() : _head(new Node()), _foot(new Node()), _size(0) {
         _head->next() = _foot, _foot->prev() = _head;
@@ -300,4 +302,9 @@ LinkedList<T>::Iterator LinkedList<T>::find(T const& val) {
         }
     }
     return this->end();
+}
+
+int main() {
+    LinkedList<int> lst;
+    return 0;
 }
