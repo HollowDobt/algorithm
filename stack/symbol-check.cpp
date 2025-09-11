@@ -31,17 +31,18 @@ int main(int argc, char const* argv[]) {
         for (char const& ch : line) {
             ++rowNum;
 
-            bool handled = false;
+            // bool handled = false;
 
             for (size_t ptr_ex = 0; ptr_ex < leftLst.size(); ++ptr_ex) {
                 if (ch == leftLst[ptr_ex]) {
                     lineRead.push({ptr_ex, {lineNum, rowNum}});
-                    handled = true;
+                    // handled = true;
+                    goto next_turn;
                     break;
                 }
             }
 
-            if (handled == true) continue;
+            // if (handled == true) continue;
 
             for (size_t ptr_ex = 0; ptr_ex < righLst.size(); ++ptr_ex) {
                 if (ch == righLst[ptr_ex]) {
@@ -65,6 +66,8 @@ int main(int argc, char const* argv[]) {
                     break;
                 }
             }
+
+        next_turn:;
         }
     }
 
