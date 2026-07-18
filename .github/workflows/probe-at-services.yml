@@ -1,0 +1,29 @@
+name: Probe .at lookup services
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
+    paths:
+      - '.github/workflows/probe-at-services.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install DNS utility
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq dnsutils
+
+      - name: Probe authoritative DNS
+        run: |
+          set -x
+          time dig +tries=1 +timeout=3 @81.91.161.98 mem.at NS
+          time dig +tries=1 +timeout=3 @81.91.161.98 thisshouldnotexist987654321.at NS
+
+      - name: Probe official RDAP
+        run: |
+          set -x
+          curl --max-time 12 -sS -o /dev/null -I -w 'mem.at code=%{http_code} seconds=%{time_total}\n' https://rdap.nic.at/domain/mem.at
+          curl --max-time 12 -sS -o /dev/null -I -w 'random code=%{http_code} seconds=%{time_total}\n' https://rdap.nic.at/domain/thisshouldnotexist987654321.at
