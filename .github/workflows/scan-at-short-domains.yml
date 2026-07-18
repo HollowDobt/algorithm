@@ -1,17 +1,6 @@
 name: Scan short .at domains
 
 on:
-  push:
-    branches:
-      - tmp-at-domain-scan-20260718
-    paths-ignore:
-      - 'scan-output/**'
-  pull_request:
-    branches:
-      - main
-    types: [opened, synchronize, reopened]
-    paths-ignore:
-      - 'scan-output/**'
   workflow_dispatch:
 
 permissions:
@@ -44,7 +33,6 @@ jobs:
           retention-days: 7
 
       - name: Commit results to temporary branch
-        if: github.event_name != 'pull_request'
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
