@@ -1,0 +1,86 @@
+name: Probe .at WHOIS service
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [synchronize]
+    paths:
+      - '.github/workflows/probe-at-services.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Probe WHOIS responses and connection behavior
+        shell: bash
+        run: |
+          cat > /tmp/probe_whois.py <<'PY'
+          import concurrent.futures
+          import socket
+          import time
+
+          HOST = "whois.nic.at"
+          PORT = 43
+
+          def query_once(domain):
+              started = time.monotonic()
+              try:
+                  with socket.create_connection((HOST, PORT), timeout=8) as sock:
+                      sock.settimeout(8)
+                      sock.sendall((domain + "\r\n").encode("ascii"))
+                      chunks = []
+                      while True:
+                          chunk = sock.recv(8192)
+                          if not chunk:
+                              break
+                          chunks.append(chunk)
+                  text = b"".join(chunks).decode("utf-8", "replace")
+                  return domain, time.monotonic() - started, text
+              except Exception as exc:
+                  return domain, time.monotonic() - started, f"ERROR {type(exc).__name__}: {exc}"
+
+          for domain in ["mem.at", "thisshouldnotexist987654321.at", "003.at"]:
+              name, elapsed, text = query_once(domain)
+              print(f"===== SINGLE {name} {elapsed:.3f}s bytes={len(text.encode())} =====")
+              print(text[:5000])
+
+          print("===== MULTI-LINE SINGLE CONNECTION =====")
+          started = time.monotonic()
+          try:
+              with socket.create_connection((HOST, PORT), timeout=8) as sock:
+                  sock.settimeout(8)
+                  sock.sendall(b"mem.at\r\nthisshouldnotexist987654321.at\r\n003.at\r\n")
+                  chunks = []
+                  while True:
+                      chunk = sock.recv(8192)
+                      if not chunk:
+                          break
+                      chunks.append(chunk)
+              text = b"".join(chunks).decode("utf-8", "replace")
+              print(f"elapsed={time.monotonic()-started:.3f}s bytes={len(text.encode())}")
+              print(text[:10000])
+          except Exception as exc:
+              print(f"ERROR {type(exc).__name__}: {exc}")
+
+          print("===== 20-CONNECTION CONTROLLED BURST =====")
+          samples = [f"zz{i:02d}.at" for i in range(20)]
+          with concurrent.futures.ThreadPoolExecutor(max_workers=5) as pool:
+              results = list(pool.map(query_once, samples))
+          for name, elapsed, text in results:
+              first = next((line.strip() for line in text.splitlines() if line.strip()), "EMPTY")
+              print(f"{name}\t{elapsed:.3f}\t{len(text.encode())}\t{first[:160]}")
+          PY
+          python /tmp/probe_whois.py
+
+      - name: Probe nic.at WHOIS web form
+        shell: bash
+        run: |
+          set -x
+          curl --max-time 15 -sS -L 'https://www.nic.at/en/my-at-domain/domain-search/whois' -o /tmp/whois.html
+          grep -Ein '<form|action=|whois|domain-search|api|graphql|xhr|fetch\(' /tmp/whois.html | head -n 150 || true
